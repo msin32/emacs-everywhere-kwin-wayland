@@ -107,7 +107,8 @@ it worked can be a good idea."
     (`(windows . ,_) (list "powershell" "-NoProfile" "-command"
                            "& {Add-Type 'using System; using System.Runtime.InteropServices; public class Tricks { [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd); }'; [tricks]::SetForegroundWindow(%w) }"))
     (`(x11 . ,_) (list "xdotool" "windowactivate" "--sync" "%w"))
-    (`(wayland . KDE) (list "kdotool" "windowactivate" "%w"))) ; No --sync
+    (`(wayland . KDE) (list "kdotool" "windowactivate" "%w")) ; No --sync
+    (`(wayland . SWAY) (list "swaymsg" "[con_id=%w]" "focus"))) ; No --sync
   "Command to refocus the active window when emacs-everywhere was triggered.
 This is given as a list in the form (CMD ARGS...).
 In the arguments, \"%w\" is treated as a placeholder for the window ID,
@@ -460,6 +461,7 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
                (pcase emacs-everywhere--display-server
                  (`(x11 . ,_) (emacs-everywhere--app-info-linux-x11))
                  (`(wayland . KDE) (emacs-everywhere--app-info-linux-kde))
+		 (`(wayland . SWAY) (emacs-everywhere--app-info-linux-sway))
                  (_ (user-error "Unable to fetch app info with display server %S" emacs-everywhere--display-server)))))
     (make-emacs-everywhere-app
      :id (string-to-number window-id)
@@ -522,6 +524,19 @@ Please go to 'System Preferences > Security & Privacy > Privacy > Accessibility'
                            (cadr (assoc "Geometry" geom))
                            (caddr (assoc "Geometry" geom)))))))
       (list window-id app-name window-title window-geometry))))
+
+(defun emacs-everywhere--app-info-linux-sway ()
+  "Return information of the current active window, on a SwayWM session."
+  (let ((window-id (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".id'"))
+	(app-name (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".app_id"))
+	(window-title (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".name"))
+	(window-geometry (list
+			  (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".rect" "|" ".x")
+			  (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".rect" "|" ".y")
+			  '0 '0
+			  (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".rect" "|" ".width")
+			  (emacs-everywhere--call "swaymsg" "-t" "get_tree" "|" "jq" "'.." "|" "select(.focused=true)" "|" ".rect" "|" ".height"))))
+  (list window-id app-name window-title window-geometry)))
 
 (defvar emacs-everywhere--dir (file-name-directory load-file-name))
 
