@@ -58,7 +58,7 @@
    ((eq system-type 'gnu/linux)
     (cons
      (if (getenv "WAYLAND_DISPLAY") 'wayland 'x11)
-     (intern (or (getenv "XDG_CURRENT_DESKTOP") "unknown"))))
+     (intern (or (getenv "XDG_CURRENT_DESKTOP") (if (getenv "SWAYSOCK") '"SWAY") "unknown"))))
    (t '(unknown . nil)))
   "The detected display server.")
 
